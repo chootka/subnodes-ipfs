@@ -454,7 +454,17 @@ case $BOOTSTRAP_NODE in
 		echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > $HOME/.ipfs/swarm.key
 		echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
 		cat $HOME/.ipfs/swarm.key
-		read -p "Did you copy it? Hit <enter> to keep going..."
+
+		BOOTSTRAP_IP=$(hostname -I)
+		echo -en "! Copy this IP address to share with client nodes: $HOSTNAME"
+
+		BOOTSTRAP_PEER_ID=$(ipfs config show | grep "PeerID" | cut -d'"' -f 4)
+		echo -en "! Copy this peer ID to share with client nodes: $PEERID"
+
+		read -p "Did you copy everything? Hit <enter> to keep going..."
+
+		ipfs bootstrap rm --all
+		ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
 	;;
 	[Nn]* )
 		# Check if a swarm.key exists, ask for overwriting
@@ -473,18 +483,11 @@ case $BOOTSTRAP_NODE in
 		# copy config file to /etc
 		[ "$overwrite_sk" == "yes" ] && echo $SWARM_KEY > $HOME/.ipfs/swarm.key
 
+		ipfs bootstrap rm --all
+		ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
 	;;
 esac
 
-ipfs bootstrap rm --all
-
-HOSTNAME=$(hostname -I)
-echo "Your host IP addr: $HOSTNAME"
-
-PEERID=$(ipfs config show | grep "PeerID" | cut -d'"' -f 4)
-echo "Your PeerID: $PEERID"
-
-ipfs bootstrap add /ip4/$HOSTNAME/tcp/4001/ipfs/$PEERID
 export LIBP2P_FORCE_PNET=1
 systemctl restart ipfs-daemon
 
