@@ -132,7 +132,7 @@ usermod -a -G www-data pi
 
 # install ipfs-rpi repo
 git clone https://github.com/claudiobizzotto/ipfs-rpi
-cd ipfs-rpi && ./install
+cd ipfs-rpi && sudo -u $USER ./install
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -451,14 +451,14 @@ esac
 
 case $BOOTSTRAP_NODE in
 	[Yy]* )
-		echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > ~/.ipfs/swarm.key
+		echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > $HOME/.ipfs/swarm.key
 		echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
-		cat ~/.ipfs/swarm.key
+		cat $HOME/.ipfs/swarm.key
 		read -p "Did you copy it? Hit <enter> to keep going..."
 	;;
 	[Nn]* )
 		# Check if a swarm.key exists, ask for overwriting
-		if [ -e ~/.ipfs/swarm.key ] ; then
+		if [ -e $HOME/.ipfs/swarm.key ] ; then
 		        read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
 		        if [ "$q" == "y" ] ; then
 		                echo "...overwriting"
@@ -471,7 +471,7 @@ case $BOOTSTRAP_NODE in
 		fi
 
 		# copy config file to /etc
-		[ "$overwrite_sk" == "yes" ] && echo $SWARM_KEY > ~/.ipfs/swarm.key
+		[ "$overwrite_sk" == "yes" ] && echo $SWARM_KEY > $HOME/.ipfs/swarm.key
 
 	;;
 esac
