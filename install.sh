@@ -456,10 +456,10 @@ case $BOOTSTRAP_NODE in
 		cat $HOME/.ipfs/swarm.key
 
 		BOOTSTRAP_IP=$(hostname -I)
-		echo -en "! Copy this IP address to share with client nodes: $HOSTNAME"
+		echo -en "! Copy this IP address to share with client nodes: $BOOTSTRAP_IP"
 
 		BOOTSTRAP_PEER_ID=$(ipfs config show | grep "PeerID" | cut -d'"' -f 4)
-		echo -en "! Copy this peer ID to share with client nodes: $PEERID"
+		echo -en "! Copy this peer ID to share with client nodes: $BOOTSTRAP_PEER_ID"
 
 		read -p "Did you copy everything? Hit <enter> to keep going..."
 
