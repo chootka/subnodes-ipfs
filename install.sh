@@ -10,7 +10,7 @@
 # - allow a selection of radio drivers
 # - fix addressing to avoid collisions below w/avahi
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
+USERNAME=$1
 
 
 
@@ -132,7 +132,7 @@ usermod -a -G www-data pi
 
 # install ipfs-rpi repo
 git clone https://github.com/claudiobizzotto/ipfs-rpi
-cd ipfs-rpi && sudo -u $USER ./install
+cd ipfs-rpi && sudo -u $USERNAME ./install
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -460,7 +460,7 @@ case $BOOTSTRAP_NODE in
 
 		BOOTSTRAP_PEER_ID=$(ipfs config show | grep "PeerID" | cut -d'"' -f 4)
 		echo -en "! Copy this peer ID to share with client nodes: $BOOTSTRAP_PEER_ID"
-
+www
 		read -p "Did you copy everything? Hit <enter> to keep going..."
 
 		ipfs bootstrap rm --all
@@ -492,7 +492,10 @@ export LIBP2P_FORCE_PNET=1
 systemctl restart ipfs-daemon
 
 # TO-DO: Give ppl the choice of which site to host on IPFS
-add /var/www/html -r
+
+chgrp www-data /var/www/html
+chown www-data /var/www/html
+chmod 775 /var/www/html
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -503,8 +506,10 @@ add /var/www/html -r
 #
 
 clear
-update-rc.d hostapd remove
 update-rc.d dnsmasq enable
+update-rc.d hostapd remove
+systemctl unmask hostapd
+systemctl enable hostapd
 
 read -p "Do you wish to reboot now? [N] " yn
 	case $yn in
