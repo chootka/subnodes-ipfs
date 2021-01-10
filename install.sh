@@ -451,7 +451,7 @@ esac
 
 case $BOOTSTRAP_NODE in
 	[Yy]* )
-		sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > $HOME/.ipfs/swarm.key
+		sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
 		echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
 		sudo -u $USERNAME cat $HOME/.ipfs/swarm.key
 
@@ -480,14 +480,14 @@ case $BOOTSTRAP_NODE in
 		fi
 
 		# copy config file to /etc
-		[ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > $HOME/.ipfs/swarm.key
+		[ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
 
 		sudo -u $USERNAME ipfs bootstrap rm --all
 		sudo -u $USERNAME ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
 	;;
 esac
 
-sudo -u $USERNAME export LIBP2P_FORCE_PNET=1
+export LIBP2P_FORCE_PNET=1
 systemctl restart ipfs-daemon
 
 # TO-DO: Give ppl the choice of which site to host on IPFS
