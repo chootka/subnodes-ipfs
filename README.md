@@ -31,8 +31,8 @@ Also, if this is your first time connecting to your Raspberry Pi headlessly (i.e
 
 * clone the repository into your home folder (assuming /home/pi)
 
-        git clone https://github.com/chootka/subnodes-lighttpd.git
-        cd subnodes-lighttpd
+        git clone https://github.com/chootka/subnodes-ipfs.git
+        cd subnodes-ipfs
 
 * configure your wireless access point and mesh network in subnodes.config in any text editor, or in the command line you can use nano
 
