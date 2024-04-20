@@ -98,6 +98,7 @@ tar -xvzf $KUBO
 rm $KUBO
 cd kubo && ./install.sh
 sudo -u $USERNAME ipfs init
+sed -i -e '$i \ipfs daemon &\n' /etc/rc.local
 cd /home/$USERNAME/subnodes-ipfs
 
 echo -en "Loading the subnodes configuration file..."
