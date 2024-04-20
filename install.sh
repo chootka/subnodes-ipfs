@@ -11,6 +11,7 @@
 # - fix addressing to avoid collisions below w/avahi
 
 USERNAME=$1
+KUBO=
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # first find out if this is RPi3 or not, based on revision code
@@ -93,9 +94,11 @@ systemctl start nginx
 # install ipfs-rpi repo
 cd /home/$USERNAME
 wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/kubo_v0.28.0_linux-arm64.tar.gz
-tar -xvzf kubo_v0.28.0_linux-arm64.tar.gz
+tar -xvzf $KUBO
+rm $KUBO
 cd kubo && ./install.sh
 sudo -u $USERNAME ipfs init
+cd /home/$USERNAME/subnodes-ipfs
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -115,13 +118,6 @@ fi
 
 # copy config file to /etc
 [ "$copy_ok" == "yes" ] && cp subnodes.config /etc
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Disable DHCP since we are relying on static IPs
-#
-systemctl disable dhcpcd
-systemctl enable networking
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
