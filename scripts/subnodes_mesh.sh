@@ -43,8 +43,10 @@ echo $PHY $WLAN1 > /tmp/mesh.log
 			batctl ap_isolation 1
 			batctl bl 1
 			batctl gw_mode client
+			batctl gw_sel_class 20
+			#batctl gw_bandwidth 10000/2000
 
-			#route add default gw 
+			#route add default gw
 
 			# add bat0 to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
