@@ -4,79 +4,45 @@
 # Author: Sarah Grant
 # Contributors: Mark Hansen, Matthias Strubel, Danja Vasiliev
 # took guidance from a script by Paul Miller : https://dl.dropboxusercontent.com/u/1663660/scripts/install-rtl8188cus.sh
-# Updated 10 April 2020
+# Updated 20 April 2024
 #
 # TO-DO
 # - allow a selection of radio drivers
 # - fix addressing to avoid collisions below w/avahi
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 USERNAME=$1
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
 # first find out if this is RPi3 or not, based on revision code
 # reference: http://www.raspberrypi-spy.co.uk/2012/09/checking-your-raspberry-pi-board-version/
 REV="$(cat /proc/cpuinfo | grep 'Revision' | awk '{print $3}')"
 
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# LOAD CONFIG FILE WITH USER OPTIONS
-#
-#  READ configuration file
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# READ configuration file
 . ./subnodes.config
 
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
 # CHECK USER PRIVILEGES
-(( `id -u` )) && echo "This script *must* be ran with root privileges, try prefixing with sudo. i.e sudo $0" && exit 1
+(( `id -u` )) && echo "This script must be ran with root privileges, try prefixing with sudo. i.e sudo $0" && exit 1
 
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
 # BEGIN INSTALLATION PROCESS
 #
 
 clear
-echo "////////////////////////"
-echo "// Welcome to Subnodes!"
-echo "// ~~~~~~~~~~~~~~~~~~~~"
+echo "Installing Subnodes..."
 echo ""
 
-read -p "This installation script will install a lighttpd / php / mysql stack, set up a wireless access point and captive portal, and provide the option of configuring a BATMAN-ADV mesh point. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
+read -p "This script will install nginx, set up a wireless access point and captive portal with hostapd and dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
 echo ""
 clear
 
 
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# CHECK THAT REQUIRED RADIOS ARE AVAILABLE FOR AP & MESH POINT [IF SELECTED]
-#
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# CHECK REQUIRED RADIOS
 # check that iw list does not fail with 'nl80211 not found'
 echo -en "Checking that USB wifi radio is available for access point..."
 readarray IW < <(iw dev | awk '$1~"phy#"{PHY=$1}; $1=="Interface" && $2~"wlan"{WLAN=$2; sub(/#/, "", PHY); print PHY " " WLAN}')
@@ -109,30 +75,25 @@ esac
 
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
 # SOFTWARE INSTALL
 #
 
 # update the packages
-echo -en "Updating apt-get and installing iw, dnsutils, samba, samba-common-bin, batctl, tar, wget, lighttpd, sqlite3 and php packages..."
-apt-get update && apt-get install -y iw dnsutils samba samba-common-bin batctl tar wget lighttpd sqlite3 php php-common php-cgi php-sqlite3
-lighttpd-enable-mod fastcgi
-lighttpd-enable-mod fastcgi-php
-# restart lighttpd
-service lighttpd force-reload
+echo -en "Updating apt-get and installing iw, dnsutils, nginx, batctl, tar, wget"
+apt-get update && apt-get install -y iw dnsutils nginx batctl tar wget
 # Change the directory owner and group
 chown www-data:www-data /var/www
 # allow the group to write to the directory
 chmod 775 /var/www
-# Add the pi user to the www-data group
-usermod -a -G www-data pi
+# Add the user to the www-data group
+usermod -a -G www-data $USERNAME
 
 # install ipfs-rpi repo
-git clone https://github.com/claudiobizzotto/ipfs-rpi
-cd ipfs-rpi && sudo -u $USERNAME ./install
+wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/kubo_v0.28.0_linux-arm64.tar.gz/download
+tar -xvzf kubo_v0.28.0_linux-arm64.tar.gz
+cd go-ipfs && bash install.sh
+ipfs init
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -154,28 +115,15 @@ fi
 [ "$copy_ok" == "yes" ] && cp subnodes.config /etc
 
 
-
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# DISABLE DHCPCD SINCE WE ARE RELYING ON STATIC IPs IN A CLOSED NETWORK
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Disable DHCP since we are relying on static IPs
 #
 systemctl disable dhcpcd
 systemctl enable networking
 
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# CONFIGURE AN ACCESS POINT WITH CAPTIVE PORTAL
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Configure the access point and captive portal
 #
 
 clear
@@ -214,26 +162,11 @@ EOF
 
 
 
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# CONFIGURE A MESH POINT?
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Check if we are configuring a mesh node
 
 clear
 echo -en "Checking whether to configure mesh point or not..."
-
-
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# 	DO CONFIGURE MESH POINT
-#
 
 case $DO_SET_MESH in
 	[Yy]* )
@@ -250,14 +183,13 @@ case $DO_SET_MESH in
 		sed -i "s/CELL_ID/$CELL_ID/" scripts/subnodes_mesh.sh
 		sed -i "s/CHAN/$MESH_CHANNEL/" scripts/subnodes_mesh.sh
 		sed -i "s/GW_MODE/$GW_MODE/" scripts/subnodes_mesh.sh
-		#sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
+		sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
 
 		# configure dnsmasq
 		echo -en "Creating dnsmasq configuration file..."
 		cat <<EOF > /etc/dnsmasq.conf
 interface=br0
 address=/#/$BRIDGE_IP
-address=/apple.com/0.0.0.0
 dhcp-range=$BR_DHCP_START,$BR_DHCP_END,$DHCP_NETMASK,$DHCP_LEASE
 EOF
 	rc=$?
@@ -271,8 +203,7 @@ EOF
 
 		# create new /etc/network/interfaces
 		echo -en "Creating new network interfaces with your settings..."
-		cat <<EOF > /etc/network/interfaread -p "Do you have a swarm.key? [N] " yn
-			cces
+		cat <<EOF > /etc/network/interfaces
 auto lo
 iface lo inet loopback
 
@@ -343,14 +274,8 @@ EOF
 	;;
 
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# 	ACCESS POINT ONLY
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Access Point only 
 #
 
 	[Nn]* ) 
@@ -363,7 +288,6 @@ EOF
 # Captive Portal logic (redirects traffic coming in on br0 to our web server)
 interface=wlan0
 address=/#/$AP_IP
-address=/apple.com/0.0.0.0
 
 # DHCP server
 dhcp-range=$AP_DHCP_START,$AP_DHCP_END,$DHCP_NETMASK,$DHCP_LEASE
@@ -439,27 +363,21 @@ EOF
 esac
 
 
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
 # IPFS CONFIG
 #
 
 case $BOOTSTRAP_NODE in
 	[Yy]* )
-		sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
-		echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
-		sudo -u $USERNAME cat $HOME/.ipfs/swarm.key
+		# sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
+		# echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
+		# sudo -u $USERNAME cat $HOME/.ipfs/swarm.key
 
 		BOOTSTRAP_IP=$(hostname -I)
-		echo -en "! Copy this IP address to share with client nodes: $BOOTSTRAP_IP"
+		echo -en "Copy this IP address to share with client nodes: $BOOTSTRAP_IP"
 
 		BOOTSTRAP_PEER_ID=$(ipfs config show | grep "PeerID" | cut -d'"' -f 4)
-		echo -en "! Copy this peer ID to share with client nodes: $BOOTSTRAP_PEER_ID"
+		echo -en "Copy this peer ID to share with client nodes: $BOOTSTRAP_PEER_ID"
 		read -p "Did you copy everything? Hit <enter> to keep going..."
 
 		sudo -u $USERNAME ipfs bootstrap rm --all
@@ -467,20 +385,20 @@ case $BOOTSTRAP_NODE in
 	;;
 	[Nn]* )
 		# Check if a swarm.key exists, ask for overwriting
-		if [ -e sudo -u $USERNAME $HOME/.ipfs/swarm.key ] ; then
-		        read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
-		        if [ "$q" == "y" ] ; then
-		                echo "...overwriting"
-		                overwrite_sk="yes"
-		        else
-		                echo "...not overwriting."
-		        fi
-		else
-		        overwrite_sk="yes"
-		fi
+		# if [ -e sudo -u $USERNAME $HOME/.ipfs/swarm.key ] ; then
+		#         read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
+		#         if [ "$q" == "y" ] ; then
+		#                 echo "...overwriting"
+		#                 overwrite_sk="yes"
+		#         else
+		#                 echo "...not overwriting."
+		#         fi
+		# else
+		#         overwrite_sk="yes"
+		# fi
 
-		# copy config file to /etc
-		[ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
+		# # copy config file to /etc
+		# [ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
 
 		sudo -u $USERNAME ipfs bootstrap rm --all
 		sudo -u $USERNAME ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
@@ -488,7 +406,7 @@ case $BOOTSTRAP_NODE in
 esac
 
 export LIBP2P_FORCE_PNET=1
-systemctl restart ipfs-daemon
+ipfs daemon
 
 # TO-DO: Give ppl the choice of which site to host on IPFS
 
@@ -497,11 +415,8 @@ chown www-data /var/www/html
 chmod 775 /var/www/html
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# COPY OVER THE ACCESS POINT START UP SCRIPT + enable services
+# # # # # # # # # # # # # # # # # # # # # # # # # # #
+# enable services
 #
 
 clear
