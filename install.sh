@@ -80,14 +80,16 @@ esac
 #
 
 # update the packages
-echo -en "Updating apt-get and installing iw, dnsutils, nginx, batctl, tar, wget"
-apt-get update && apt-get install -y iw dnsutils nginx batctl tar wget
+echo -en "Updating apt and installing iw, dnsutils, nginx, batctl, tar, wget"
+apt update && apt install -y iw dnsutils nginx batctl tar wget
+apt remove apache2
 # Change the directory owner and group
 chown www-data:www-data /var/www
 # allow the group to write to the directory
 chmod 775 /var/www
 # Add the user to the www-data group
 usermod -a -G www-data $USERNAME
+systemctl start nginx
 
 # install ipfs-rpi repo
 wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/kubo_v0.28.0_linux-arm64.tar.gz/download
@@ -131,7 +133,7 @@ echo -en "Configuring Access Point..."
 
 # install required packages
 echo -en "Installing bridge-utils, hostapd and dnsmasq..."
-apt-get install -y bridge-utils hostapd dnsmasq
+apt install -y bridge-utils hostapd dnsmasq
 echo -en "[OK]\n"
 
 # backup the existing interfaces file
