@@ -82,7 +82,6 @@ esac
 # update the packages
 echo -en "Updating apt and installing iw, dnsutils, nginx, batctl, tar, wget"
 apt update && apt install -y iw dnsutils nginx batctl tar wget
-apt remove apache2
 # Change the directory owner and group
 chown www-data:www-data /var/www
 # allow the group to write to the directory
@@ -92,10 +91,11 @@ usermod -a -G www-data $USERNAME
 systemctl start nginx
 
 # install ipfs-rpi repo
-wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/kubo_v0.28.0_linux-arm64.tar.gz/download
+cd /home/$USERNAME
+wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/kubo_v0.28.0_linux-arm64.tar.gz
 tar -xvzf kubo_v0.28.0_linux-arm64.tar.gz
-cd go-ipfs && bash install.sh
-ipfs init
+cd kubo && ./install.sh
+sudo -u $USERNAME ipfs init
 
 echo -en "Loading the subnodes configuration file..."
 
