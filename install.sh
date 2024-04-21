@@ -11,7 +11,7 @@
 # - fix addressing to avoid collisions below w/avahi
 
 USERNAME=$1
-KUBO=
+KUBO="kubo_v0.28.0_linux-arm64.tar.gz"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # first find out if this is RPi3 or not, based on revision code
@@ -37,7 +37,7 @@ clear
 echo "Installing Subnodes..."
 echo ""
 
-read -p "This script will install nginx, set up a wireless access point and captive portal with hostapd and dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
+read -p "This script will install ipfs, nginx, set up a wireless access point and captive portal with hostapd and dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
 echo ""
 clear
 
@@ -93,13 +93,14 @@ systemctl start nginx
 
 # install ipfs-rpi repo
 cd /home/$USERNAME
-wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/kubo_v0.28.0_linux-arm64.tar.gz
+wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/$KUBO
 tar -xvzf $KUBO
 rm $KUBO
 cd kubo && ./install.sh
 sudo -u $USERNAME ipfs init
 sed -i -e '$i \ipfs daemon &\n' /etc/rc.local
 cd /home/$USERNAME/subnodes-ipfs
+echo pwd
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -136,13 +137,14 @@ echo -en "[OK]\n"
 # backup the existing interfaces file
 echo -en "Creating backup of network interfaces configuration file..."
 cp /etc/network/interfaces /etc/network/interfaces.bak
+
 rc=$?
 if [[ $rc != 0 ]] ; then
 		echo -en "[FAIL]\n"
 	exit $rc
 else
 	echo -en "[OK]\n"
-fi		
+fi
 
 # create hostapd init file
 echo -en "Creating default hostapd file..."
@@ -182,7 +184,9 @@ case $DO_SET_MESH in
 		sed -i "s/CELL_ID/$CELL_ID/" scripts/subnodes_mesh.sh
 		sed -i "s/CHAN/$MESH_CHANNEL/" scripts/subnodes_mesh.sh
 		sed -i "s/GW_MODE/$GW_MODE/" scripts/subnodes_mesh.sh
-		sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
+		#sed -i "s/GW_SEL_CLASS/$GW_SEL_CLASS/" scripts/subnodes_mesh.sh
+		#sed -i "s/GW_BANDWIDTH/$GW_BANDWIDTH/" scripts/subnodes_mesh.sh
+		#sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
 
 		# configure dnsmasq
 		echo -en "Creating dnsmasq configuration file..."
@@ -274,13 +278,13 @@ EOF
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Access Point only 
+# Access Point only
 #
 
-	[Nn]* ) 
+	[Nn]* )
 	# if no mesh point is created, set up network interfaces, hostapd and dnsmasq to operate without a bridge
 		clear
-		
+
 		# configure dnsmasq
 		echo -en "Creating dnsmasq configuration file..."
 		cat <<EOF > /etc/dnsmasq.conf
@@ -368,9 +372,9 @@ esac
 
 case $BOOTSTRAP_NODE in
 	[Yy]* )
-		# sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
-		# echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
-		# sudo -u $USERNAME cat $HOME/.ipfs/swarm.key
+		sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
+		echo -en "! You must copy this key to ~/.ipfs/swarm.key on all client nodes:"
+		sudo -u $USERNAME cat $HOME/.ipfs/swarm.key
 
 		BOOTSTRAP_IP=$(hostname -I)
 		echo -en "Copy this IP address to share with client nodes: $BOOTSTRAP_IP"
@@ -384,20 +388,20 @@ case $BOOTSTRAP_NODE in
 	;;
 	[Nn]* )
 		# Check if a swarm.key exists, ask for overwriting
-		# if [ -e sudo -u $USERNAME $HOME/.ipfs/swarm.key ] ; then
-		#         read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
-		#         if [ "$q" == "y" ] ; then
-		#                 echo "...overwriting"
-		#                 overwrite_sk="yes"
-		#         else
-		#                 echo "...not overwriting."
-		#         fi
-		# else
-		#         overwrite_sk="yes"
-		# fi
+		if [ -e sudo -u $USERNAME $HOME/.ipfs/swarm.key ] ; then
+		        read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
+		        if [ "$q" == "y" ] ; then
+		                echo "...overwriting"
+		                overwrite_sk="yes"
+		        else
+		                echo "...not overwriting."
+		        fi
+		else
+		        overwrite_sk="yes"
+		fi
 
-		# # copy config file to /etc
-		# [ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
+		# copy swarm.key from config to .ipfs
+		[ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
 
 		sudo -u $USERNAME ipfs bootstrap rm --all
 		sudo -u $USERNAME ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
@@ -405,7 +409,7 @@ case $BOOTSTRAP_NODE in
 esac
 
 export LIBP2P_FORCE_PNET=1
-ipfs daemon
+sed -i -e "\$i sudo -u $USERNAME ipfs daemon &\n" /etc/rc.local
 
 # TO-DO: Give ppl the choice of which site to host on IPFS
 

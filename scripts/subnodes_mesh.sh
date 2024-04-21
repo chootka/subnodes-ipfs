@@ -43,7 +43,7 @@ echo $PHY $WLAN1 > /tmp/mesh.log
 			batctl ap_isolation 1
 			batctl bl 1
 			batctl gw_mode GW_MODE
-			batctl gw_sel_class GW_SEL_CLASS
+			#batctl gw_sel_class GW_SEL_CLASS
 			#batctl gw_bandwidth GW_BANDWIDTH
 
 			#route add default gw GW_IP
