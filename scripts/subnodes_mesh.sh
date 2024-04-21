@@ -35,7 +35,7 @@ echo $PHY $WLAN1 > /tmp/mesh.log
 
 			ifconfig $WLAN1 down
 			ifconfig $WLAN1 mtu MTU
-			iwconfig $WLAN1 mode ad-hoc essid SSID ap CELL_ID channel CHAN
+-                       iwconfig $WLAN1 mode ad-hoc essid SSID ap CELL_ID channel CHAN
 
 			# add the interface to batman
 			batctl if add $WLAN1

@@ -387,21 +387,25 @@ case $BOOTSTRAP_NODE in
 		sudo -u $USERNAME ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
 	;;
 	[Nn]* )
+		echo "Adding swarm.key to .ipfs..."
+                cp scripts/swarm.key /home/$USERNAME/.ipfs/swarm.key
+		chown $USERNAME:$USERNAME /home/$USERNAME/.ipfs/swarm.key
+                chmod 644 /home/$USERNAME/.ipfs/swarm.key
 		# Check if a swarm.key exists, ask for overwriting
-		if [ -e sudo -u $USERNAME $HOME/.ipfs/swarm.key ] ; then
-		        read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
-		        if [ "$q" == "y" ] ; then
-		                echo "...overwriting"
-		                overwrite_sk="yes"
-		        else
-		                echo "...not overwriting."
-		        fi
-		else
-		        overwrite_sk="yes"
-		fi
+		#if [ -e sudo -u $USERNAME $HOME/.ipfs/swarm.key ] ; then
+		#        read -p "swarm.key already exists! Overwrite? (y/n) [N]" -e $q
+		#        if [ "$q" == "y" ] ; then
+		#                echo "...overwriting"
+		#                overwrite_sk="yes"
+		#        else
+		#                echo "...not overwriting."
+		#        fi
+		#else
+		#        overwrite_sk="yes"
+		#fi
 
 		# copy swarm.key from config to .ipfs
-		[ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
+		# [ "$overwrite_sk" == "yes" ] && sudo -u $USERNAME echo $SWARM_KEY > sudo -u $USERNAME $HOME/.ipfs/swarm.key
 
 		sudo -u $USERNAME ipfs bootstrap rm --all
 		sudo -u $USERNAME ipfs bootstrap add /ip4/$BOOTSTRAP_IP/tcp/4001/ipfs/$BOOTSTRAP_PEER_ID
