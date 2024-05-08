@@ -48,7 +48,7 @@ echo $PHY $WLAN0 > /tmp/ap.log
 
 			# start the hostapd and dnsmasq services
 			service dnsmasq start
-			hostapd -B /etc/hostapd/hostapd.conf
+			service hostapd restart
 			service nginx start
 			;;
 		status)
@@ -62,7 +62,7 @@ echo $PHY $WLAN0 > /tmp/ap.log
 				brctl delif br0 $WLAN0
 			fi
 
-			/etc/init.d/hostapd stop
+			service hostapd stop
             		service dnsmasq stop
             		service nginx stop
 		;;
