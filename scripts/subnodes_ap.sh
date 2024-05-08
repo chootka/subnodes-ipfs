@@ -20,31 +20,31 @@ DAEMON_PATH="/home/pi/subnodes"
 PIDFILE=/var/run/$NAME.pid
 
 # get first PHY WLAN pair
-readarray IW < <(iw dev | awk '$1~"phy#"{PHY=$1}; $1=="Interface" && $2~"wlan"{WLAN=$2; sub(/#/, "", PHY); print PHY " " WLAN}')
+readarray IW < <(iw dev | awk '$1~"phy#"{PHY=$1}; $1=="Interface" && $2!="wlan0"{WLAN=$2; sub(/#/, "", PHY); print PHY " " WLAN}')
 
-IW0=( ${IW[0]} )
+IW1=( ${IW[0]} )
 
-PHY=${IW0[0]}
-WLAN0=${IW0[1]}
+PHY=${IW1[0]}
+WLAN1=${IW1[1]}
 
-echo $PHY $WLAN0 > /tmp/ap.log
+echo $PHY $WLAN1 > /tmp/ap.log
 
 	case "$1" in
 		start)
-			echo "Starting $NAME access point on interfaces $PHY:$WLAN0..."
+			echo "Starting $NAME access point on interfaces $PHY:$WLAN1..."
 
 			# associate the access point interface to a physical devices
-			ifconfig $WLAN0 down
+			ifconfig $WLAN1 down
 			# put iface into AP mode
-			iw phy $PHY interface add $WLAN0 type __ap
+			iw phy $PHY interface add $WLAN1 type __ap
 
 			# add access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				brctl addif br0 $WLAN0
+				brctl addif br0 $WLAN1
 			fi
 
 			# bring up access point iface wireless access point interface
-			ifconfig $WLAN0 up
+			ifconfig $WLAN1 up
 
 			# start the hostapd and dnsmasq services
 			service dnsmasq start
@@ -55,11 +55,11 @@ echo $PHY $WLAN0 > /tmp/ap.log
 		;;
 		stop)
 
-			ifconfig $WLAN0 down
+			ifconfig $WLAN1 down
 
 			# delete access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				brctl delif br0 $WLAN0
+				brctl delif br0 $WLAN1
 			fi
 
 			service hostapd stop
