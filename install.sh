@@ -134,11 +134,14 @@ echo -en "[OK]\n"
 
 # backup the existing interfaces file
 echo -en "Creating backup of network interfaces configuration file..."
-cp /etc/network/interfaces /etc/network/interfaces.bak
+INTERFACES=/etc/network/interfaces
+if test -f "$INTERFACES"; then
+	cp /etc/network/interfaces /etc/network/interfaces.bak
+fi
 
 rc=$?
 if [[ $rc != 0 ]] ; then
-		echo -en "[FAIL]\n"
+	echo -en "[FAIL]\n"
 	exit $rc
 else
 	echo -en "[OK]\n"
@@ -207,10 +210,6 @@ EOF
 		cat <<EOF > /etc/network/interfaces
 auto lo
 iface lo inet loopback
-
-allow-hotplug eth0
-auto eth0
-iface eth0 inet dhcp
 
 auto wlan0
 iface wlan0 inet static
@@ -307,10 +306,6 @@ EOF
 		cat <<EOF > /etc/network/interfaces
 auto lo
 iface lo inet loopback
-
-allow-hotplug eth0
-auto eth0
-iface eth0 inet dhcp
 
 auto wlan0
 iface wlan0 inet static
