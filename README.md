@@ -40,7 +40,7 @@ Also, if this is your first time connecting to your Raspberry Pi headlessly (i.e
 
 * run the installation script
 
-        sudo ./install.sh
+        sudo ./install.sh $USER
 
 The installation process takes about 5 minutes. After it has completed, you will have a running lighttpd php7 web server, wireless access point, and BATMAN Advanced mesh node (if you left DO_SET_MESH=y). Connecting to the network and navigating to a browser page will redirect you to your new captive portal page. It's only going to be a boilerplate (aka, default) lighttpd web page, so head into /var/www/html and create a new index.html file and go nuts.
 
