@@ -34,35 +34,38 @@ echo $PHY $WLAN0 > /tmp/ap.log
 			echo "Starting $NAME access point on interfaces $PHY:$WLAN0..."
 
 			# associate the access point interface to a physical devices
-			ifconfig $WLAN0 down
+			#ifconfig $WLAN0 down
+			nmcli con down CUSTOM-AP
 			# put iface into AP mode
-			iw phy $PHY interface add $WLAN0 type __ap
+			#iw phy $PHY interface add $WLAN0 type __ap
 
 			# add access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				brctl addif br0 $WLAN0
+			#	brctl addif br0 $WLAN0
+				nmcli con add type bridge-slave ifname wlan0 master br0
 			fi
 
 			# bring up access point iface wireless access point interface
-			ifconfig $WLAN0 up
+			#ifconfig $WLAN0 up
+			nmcli con up CUSTOM-AP
 
 			# start the hostapd and dnsmasq services
 			service dnsmasq start
-			service hostapd restart
 			service nginx start
 			;;
 		status)
 		;;
 		stop)
 
-			ifconfig $WLAN0 down
+			#ifconfig $WLAN0 down
+			nmcli con down CUSTOM-AP
 
 			# delete access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				brctl delif br0 $WLAN0
+			#	brctl delif br0 $WLAN0
+				nmcli con down br0
 			fi
 
-			service hostapd stop
             		service dnsmasq stop
             		service nginx stop
 		;;

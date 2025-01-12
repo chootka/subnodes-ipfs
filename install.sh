@@ -37,7 +37,7 @@ clear
 echo "Installing Subnodes..."
 echo ""
 
-read -p "This script will install ipfs, nginx, set up a wireless access point and captive portal with hostapd and dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
+read -p "This script will install ipfs, nginx, set up a wireless access point and captive portal with dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
 echo ""
 clear
 
@@ -128,41 +128,14 @@ clear
 echo -en "Configuring Access Point..."
 
 # install required packages
-echo -en "Installing bridge-utils, hostapd and dnsmasq..."
-apt install -y bridge-utils hostapd dnsmasq
+echo -en "Installing bridge-utils, and dnsmasq..."
+apt install -y bridge-utils dnsmasq
 echo -en "[OK]\n"
 
-# backup the existing interfaces file
-echo -en "Creating backup of network interfaces configuration file..."
-INTERFACES=/etc/network/interfaces
-if test -f "$INTERFACES"; then
-	cp /etc/network/interfaces /etc/network/interfaces.bak
-fi
-
-rc=$?
-if [[ $rc != 0 ]] ; then
-	echo -en "[FAIL]\n"
-	exit $rc
-else
-	echo -en "[OK]\n"
-fi
-
-# create hostapd init file
-echo -en "Creating default hostapd file..."
-cat <<EOF > /etc/default/hostapd
-DAEMON_CONF="/etc/hostapd/hostapd.conf"
-EOF
-	rc=$?
-	if [[ $rc != 0 ]] ; then
-			echo -en "[FAIL]\n"
-		echo ""
-		exit $rc
-	else
-		echo -en "[OK]\n"
-	fi
-
-
-
+nmcli con add type wifi ifname wlan0 mode ap con-name CUSTOM-AP ssid $AP_SSID autoconnect true
+nmcli modify CUSTOM-AP 802-11-wireless.channel $AP_CHAN
+nmcli modify CUSTOM-AP ipv4.method shared ipv4.address $AP_IP
+nmcli con up CUSTOM-AP
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Check if we are configuring a mesh node
@@ -205,62 +178,12 @@ EOF
 		echo -en "[OK]\n"
 	fi
 
-		# create new /etc/network/interfaces
-		echo -en "Creating new network interfaces with your settings..."
-		cat <<EOF > /etc/network/interfaces
-auto lo
-iface lo inet loopback
-
-auto wlan0
-iface wlan0 inet static
-address $AP_IP
-netmask $AP_NETMASK
-
-auto br0
-iface br0 inet static
-address $BRIDGE_IP
-netmask $BRIDGE_NETMASK
-bridge_ports bat0 wlan0
-bridge_stp off
-
-iface default inet dhcp
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-		    	echo -en "[FAIL]\n"
-			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
-
-		# create hostapd configuration with user's settings
-		echo -en "Creating hostapd.conf file..."
-		cat <<EOF > /etc/hostapd/hostapd.conf
-interface=wlan0
-bridge=br0
-driver=$RADIO_DRIVER
-country_code=$AP_COUNTRY
-ctrl_interface=/var/run/hostapd
-ctrl_interface_group=0
-ssid=$AP_SSID
-hw_mode=g
-channel=$AP_CHAN
-beacon_int=100
-auth_algs=1
-wpa=0
-ap_isolate=1
-macaddr_acl=0
-wmm_enabled=1
-ieee80211n=1
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-			echo -en "[FAIL]\n"
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
+nmcli con add type bridge ifname br0 con-name br0 autoconnect true
+nmcli modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
+nmcli con modify br0 bridge.stp no
+nmcli con add type bridge-slave ifname bat0 master br0
+nmcli con add type bridge-slave ifname wlan0 master br0
+nmcli con up br0
 
 		# COPY OVER START UP SCRIPTS
 		echo ""
@@ -296,54 +219,6 @@ EOF
 		if [[ $rc != 0 ]] ; then
 	    		echo -en "[FAIL]\n"
 			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
-
-		# create new /etc/network/interfaces
-		echo -en "Creating new network interfaces with your settings..."
-		cat <<EOF > /etc/network/interfaces
-auto lo
-iface lo inet loopback
-
-auto wlan0
-iface wlan0 inet static
-address $AP_IP
-netmask $AP_NETMASK
-
-iface default inet dhcp
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-		    	echo -en "[FAIL]\n"
-			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
-
-		# create hostapd configuration with user's settings
-		echo -en "Creating hostapd.conf file..."
-		cat <<EOF > /etc/hostapd/hostapd.conf
-interface=wlan0
-driver=$RADIO_DRIVER
-country_code=$AP_COUNTRY
-ctrl_interface=/var/run/hostapd
-ctrl_interface_group=0
-ssid=$AP_SSID
-hw_mode=g
-channel=$AP_CHAN
-auth_algs=1
-wpa=0
-ap_isolate=1
-macaddr_acl=0
-wmm_enabled=1
-ieee80211n=1
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-			echo -en "[FAIL]\n"
 			exit $rc
 		else
 			echo -en "[OK]\n"
@@ -425,9 +300,6 @@ chmod 775 /var/www/html
 
 clear
 update-rc.d dnsmasq enable
-update-rc.d hostapd remove
-systemctl unmask hostapd
-systemctl enable hostapd
 
 read -p "Do you wish to reboot now? [N] " yn
 	case $yn in
