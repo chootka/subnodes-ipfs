@@ -89,7 +89,7 @@ chmod 775 /var/www
 usermod -a -G www-data $USERNAME
 systemctl start nginx
 
-# install ipfs-rpi repo
+# install ipfs kubo
 cd /home/$USERNAME
 wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/$KUBO
 tar -xvzf $KUBO
@@ -128,14 +128,14 @@ clear
 echo -en "Configuring Access Point..."
 
 # install required packages
-echo -en "Installing bridge-utils, and dnsmasq..."
-apt install -y bridge-utils dnsmasq
+echo -en "Installing bridge-utils..."
+apt install -y bridge-utils
 echo -en "[OK]\n"
 
-nmcli con add type wifi ifname wlan0 mode ap con-name CUSTOM-AP ssid $AP_SSID autoconnect true
-nmcli modify CUSTOM-AP 802-11-wireless.channel $AP_CHAN
-nmcli modify CUSTOM-AP ipv4.method shared ipv4.address $AP_IP
-nmcli con up CUSTOM-AP
+nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect true
+nmcli modify $CONNECTION_NAME 802-11-wireless.channel $AP_CHAN
+nmcli modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
+nmcli con up $CONNECTION_NAME
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Check if we are configuring a mesh node
@@ -162,32 +162,18 @@ case $DO_SET_MESH in
 		#sed -i "s/GW_BANDWIDTH/$GW_BANDWIDTH/" scripts/subnodes_mesh.sh
 		#sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
 
-		# configure dnsmasq
-		echo -en "Creating dnsmasq configuration file..."
-		cat <<EOF > /etc/dnsmasq.conf
-interface=br0
-address=/#/$BRIDGE_IP
-dhcp-range=$BR_DHCP_START,$BR_DHCP_END,$DHCP_NETMASK,$DHCP_LEASE
-EOF
-	rc=$?
-	if [[ $rc != 0 ]] ; then
-    		echo -en "[FAIL]\n"
-		echo ""
-		exit $rc
-	else
-		echo -en "[OK]\n"
-	fi
-
-nmcli con add type bridge ifname br0 con-name br0 autoconnect true
-nmcli modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
-nmcli con modify br0 bridge.stp no
-nmcli con add type bridge-slave ifname bat0 master br0
-nmcli con add type bridge-slave ifname wlan0 master br0
-nmcli con up br0
+		nmcli con add type bridge ifname br0 con-name br0 autoconnect true
+		nmcli modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
+		nmcli con modify br0 bridge.stp no
+		nmcli con add type bridge-slave ifname bat0 master br0
+		nmcli con add type bridge-slave ifname wlan0 master br0
+		nmcli con up br0
 
 		# COPY OVER START UP SCRIPTS
 		echo ""
 		echo "Adding startup scripts to init.d..."
+		sed -i "s/INTERFACE/$INTERFACE/" scripts/subnodes_ap.sh
+                sed -i "s/CONNECTION_NAME/$CONNECTION_NAME/" scripts/subnodes_ap.sh
 		cp scripts/subnodes_ap.sh /etc/init.d/subnodes_ap
 		chmod 755 /etc/init.d/subnodes_ap
 		update-rc.d subnodes_ap defaults
@@ -202,36 +188,26 @@ nmcli con up br0
 #
 
 	[Nn]* )
-	# if no mesh point is created, set up network interfaces, hostapd and dnsmasq to operate without a bridge
+	# if no mesh point is created, set up network manager to work without a bridge
 		clear
 
-		# configure dnsmasq
-		echo -en "Creating dnsmasq configuration file..."
-		cat <<EOF > /etc/dnsmasq.conf
-# Captive Portal logic (redirects traffic coming in on br0 to our web server)
-interface=wlan0
-address=/#/$AP_IP
-
-# DHCP server
-dhcp-range=$AP_DHCP_START,$AP_DHCP_END,$DHCP_NETMASK,$DHCP_LEASE
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-	    		echo -en "[FAIL]\n"
-			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
+		nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect true
+		nmcli modify $CONNECTION_NAME 802-11-wireless.channel $AP_CHAN
+		nmcli modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
+		nmcli con up $CONNECTION_NAME
 
 		# COPY OVER START UP SCRIPTS
 		echo ""
 		echo "Adding startup scripts to init.d..."
+		sed -i "s/INTERFACE/$INTERFACE/" scripts/subnodes_ap.sh
+                sed -i "s/CONNECTION_NAME/$CONNECTION_NAME/" scripts/subnodes_ap.sh
 		cp scripts/subnodes_ap.sh /etc/init.d/subnodes_ap
 		chmod 755 /etc/init.d/subnodes_ap
 		update-rc.d subnodes_ap defaults
 	;;
 esac
+
+# NEED TO SET managed=true in /etc/NetworkManager/NetworkManager.conf
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -241,6 +217,17 @@ esac
 # using IPFS?
 case $DO_SET_IPFS in
         [Yy]* )
+		# install ipfs kubo
+		cd /home/$USERNAME
+		wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/$KUBO
+		tar -xvzf $KUBO
+		rm $KUBO
+		cd kubo && ./install.sh
+		sudo -u $USERNAME ipfs init
+		sed -i -e '$i \ipfs daemon &\n' /etc/rc.local
+		cd /home/$USERNAME/subnodes-ipfs
+		echo pwd
+
 		case $BOOTSTRAP_NODE in
 			[Yy]* )
 				sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
@@ -299,7 +286,6 @@ chmod 775 /var/www/html
 #
 
 clear
-update-rc.d dnsmasq enable
 
 read -p "Do you wish to reboot now? [N] " yn
 	case $yn in
