@@ -137,6 +137,13 @@ case $DO_SET_MESH in
 		#sed -i "s/GW_BANDWIDTH/$GW_BANDWIDTH/" scripts/subnodes_mesh.sh
 		#sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
 
+  		nmcli con delete $CONNECTION_NAME
+		nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect yes
+		nmcli con modify $CONNECTION_NAME 802-11-wireless.band bg 802-11-wireless.channel $AP_CHAN
+		nmcli con modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
+		#nmcli con modify $CONNECTION_NAME wifi-sec.key-mgmt wpa-psk wifi-sec.psk "mypassword"
+		nmcli con up $CONNECTION_NAME
+
 		nmcli con delete br0
 		nmcli con add type bridge ifname br0 con-name br0 autoconnect yes
 		nmcli con modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
