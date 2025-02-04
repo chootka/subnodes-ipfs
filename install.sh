@@ -79,8 +79,8 @@ esac
 #
 
 # update the packages
-echo -en "Updating apt and installing iw, dnsutils, nginx, batctl, tar, wget"
-apt update && apt install -y iw dnsutils nginx batctl tar wget
+echo -en "Updating apt and installing iw, dnsutils, nginx, batctl, tar, wget, bridge-utils"
+apt update && apt install -y iw dnsutils nginx batctl tar wget bridge-utils
 # Change the directory owner and group
 chown www-data:www-data /var/www
 # allow the group to write to the directory
@@ -89,16 +89,9 @@ chmod 775 /var/www
 usermod -a -G www-data $USERNAME
 systemctl start nginx
 
-# install ipfs kubo
-cd /home/$USERNAME
-wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/$KUBO
-tar -xvzf $KUBO
-rm $KUBO
-cd kubo && ./install.sh
-sudo -u $USERNAME ipfs init
-sed -i -e '$i \ipfs daemon &\n' /etc/rc.local
-cd /home/$USERNAME/subnodes-ipfs
-echo pwd
+chgrp www-data /var/www/html
+chown www-data /var/www/html
+chmod 775 /var/www/html
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -118,24 +111,6 @@ fi
 
 # copy config file to /etc
 [ "$copy_ok" == "yes" ] && cp subnodes.config /etc
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Configure the access point and captive portal
-#
-
-clear
-echo -en "Configuring Access Point..."
-
-# install required packages
-echo -en "Installing bridge-utils..."
-apt install -y bridge-utils
-echo -en "[OK]\n"
-
-nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect true
-nmcli modify $CONNECTION_NAME 802-11-wireless.channel $AP_CHAN
-nmcli modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
-nmcli con up $CONNECTION_NAME
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Check if we are configuring a mesh node
@@ -162,11 +137,12 @@ case $DO_SET_MESH in
 		#sed -i "s/GW_BANDWIDTH/$GW_BANDWIDTH/" scripts/subnodes_mesh.sh
 		#sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
 
-		nmcli con add type bridge ifname br0 con-name br0 autoconnect true
-		nmcli modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
+		nmcli con delete br0
+		nmcli con add type bridge ifname br0 con-name br0 autoconnect yes
+		nmcli con modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
 		nmcli con modify br0 bridge.stp no
 		nmcli con add type bridge-slave ifname bat0 master br0
-		nmcli con add type bridge-slave ifname wlan0 master br0
+		nmcli con add type bridge-slave ifname $INTERFACE master br0
 		nmcli con up br0
 
 		# COPY OVER START UP SCRIPTS
@@ -191,9 +167,11 @@ case $DO_SET_MESH in
 	# if no mesh point is created, set up network manager to work without a bridge
 		clear
 
-		nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect true
-		nmcli modify $CONNECTION_NAME 802-11-wireless.channel $AP_CHAN
-		nmcli modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
+		nmcli con delete $CONNECTION_NAME
+		nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect yes
+		nmcli con modify $CONNECTION_NAME 802-11-wireless.band bg 802-11-wireless.channel $AP_CHAN
+		nmcli con modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
+		#nmcli con modify $CONNECTION_NAME wifi-sec.key-mgmt wpa-psk wifi-sec.psk "mypassword"
 		nmcli con up $CONNECTION_NAME
 
 		# COPY OVER START UP SCRIPTS
@@ -275,17 +253,6 @@ case $DO_SET_IPFS in
 esac
 
 # TO-DO: Give ppl the choice of which site to host on IPFS
-
-chgrp www-data /var/www/html
-chown www-data /var/www/html
-chmod 775 /var/www/html
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# enable services
-#
-
-clear
 
 read -p "Do you wish to reboot now? [N] " yn
 	case $yn in
