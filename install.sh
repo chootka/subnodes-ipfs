@@ -37,7 +37,7 @@ clear
 echo "Installing Subnodes..."
 echo ""
 
-read -p "This script will install ipfs, nginx, set up a wireless access point and captive portal with hostapd and dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
+read -p "This script will install ipfs, nginx, set up a wireless access point and captive portal with dnsmasq, and provide the option of configuring a BATMAN-ADV mesh point with batctl. Make sure you have one (or two, if installing the additional mesh point) USB wifi radios connected to your Raspberry Pi before proceeding. Press any key to continue..."
 echo ""
 clear
 
@@ -79,8 +79,8 @@ esac
 #
 
 # update the packages
-echo -en "Updating apt and installing iw, dnsutils, nginx, batctl, tar, wget"
-apt update && apt install -y iw dnsutils nginx batctl tar wget
+echo -en "Updating apt and installing iw, dnsutils, nginx, batctl, tar, wget, bridge-utils"
+apt update && apt install -y iw dnsutils nginx batctl tar wget bridge-utils
 # Change the directory owner and group
 chown www-data:www-data /var/www
 # allow the group to write to the directory
@@ -89,16 +89,9 @@ chmod 775 /var/www
 usermod -a -G www-data $USERNAME
 systemctl start nginx
 
-# install ipfs-rpi repo
-cd /home/$USERNAME
-wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/$KUBO
-tar -xvzf $KUBO
-rm $KUBO
-cd kubo && ./install.sh
-sudo -u $USERNAME ipfs init
-sed -i -e '$i \ipfs daemon &\n' /etc/rc.local
-cd /home/$USERNAME/subnodes-ipfs
-echo pwd
+chgrp www-data /var/www/html
+chown www-data /var/www/html
+chmod 775 /var/www/html
 
 echo -en "Loading the subnodes configuration file..."
 
@@ -118,51 +111,6 @@ fi
 
 # copy config file to /etc
 [ "$copy_ok" == "yes" ] && cp subnodes.config /etc
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Configure the access point and captive portal
-#
-
-clear
-echo -en "Configuring Access Point..."
-
-# install required packages
-echo -en "Installing bridge-utils, hostapd and dnsmasq..."
-apt install -y bridge-utils hostapd dnsmasq
-echo -en "[OK]\n"
-
-# backup the existing interfaces file
-echo -en "Creating backup of network interfaces configuration file..."
-INTERFACES=/etc/network/interfaces
-if test -f "$INTERFACES"; then
-	cp /etc/network/interfaces /etc/network/interfaces.bak
-fi
-
-rc=$?
-if [[ $rc != 0 ]] ; then
-	echo -en "[FAIL]\n"
-	exit $rc
-else
-	echo -en "[OK]\n"
-fi
-
-# create hostapd init file
-echo -en "Creating default hostapd file..."
-cat <<EOF > /etc/default/hostapd
-DAEMON_CONF="/etc/hostapd/hostapd.conf"
-EOF
-	rc=$?
-	if [[ $rc != 0 ]] ; then
-			echo -en "[FAIL]\n"
-		echo ""
-		exit $rc
-	else
-		echo -en "[OK]\n"
-	fi
-
-
-
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Check if we are configuring a mesh node
@@ -189,82 +137,19 @@ case $DO_SET_MESH in
 		#sed -i "s/GW_BANDWIDTH/$GW_BANDWIDTH/" scripts/subnodes_mesh.sh
 		#sed -i "s/GW_IP/$GW_IP/" scripts/subnodes_mesh.sh
 
-		# configure dnsmasq
-		echo -en "Creating dnsmasq configuration file..."
-		cat <<EOF > /etc/dnsmasq.conf
-interface=br0
-address=/#/$BRIDGE_IP
-dhcp-range=$BR_DHCP_START,$BR_DHCP_END,$DHCP_NETMASK,$DHCP_LEASE
-EOF
-	rc=$?
-	if [[ $rc != 0 ]] ; then
-    		echo -en "[FAIL]\n"
-		echo ""
-		exit $rc
-	else
-		echo -en "[OK]\n"
-	fi
-
-		# create new /etc/network/interfaces
-		echo -en "Creating new network interfaces with your settings..."
-		cat <<EOF > /etc/network/interfaces
-auto lo
-iface lo inet loopback
-
-auto wlan0
-iface wlan0 inet static
-address $AP_IP
-netmask $AP_NETMASK
-
-auto br0
-iface br0 inet static
-address $BRIDGE_IP
-netmask $BRIDGE_NETMASK
-bridge_ports bat0 wlan0
-bridge_stp off
-
-iface default inet dhcp
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-		    	echo -en "[FAIL]\n"
-			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
-
-		# create hostapd configuration with user's settings
-		echo -en "Creating hostapd.conf file..."
-		cat <<EOF > /etc/hostapd/hostapd.conf
-interface=wlan0
-bridge=br0
-driver=$RADIO_DRIVER
-country_code=$AP_COUNTRY
-ctrl_interface=/var/run/hostapd
-ctrl_interface_group=0
-ssid=$AP_SSID
-hw_mode=g
-channel=$AP_CHAN
-beacon_int=100
-auth_algs=1
-wpa=0
-ap_isolate=1
-macaddr_acl=0
-wmm_enabled=1
-ieee80211n=1
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-			echo -en "[FAIL]\n"
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
+		nmcli con delete br0
+		nmcli con add type bridge ifname br0 con-name br0 autoconnect yes
+		nmcli con modify br0 ipv4.method shared ipv4.address $BRIDGE_IP
+		nmcli con modify br0 bridge.stp no
+		nmcli con add type bridge-slave ifname bat0 master br0
+		nmcli con add type bridge-slave ifname $INTERFACE master br0
+		nmcli con up br0
 
 		# COPY OVER START UP SCRIPTS
 		echo ""
 		echo "Adding startup scripts to init.d..."
+		sed -i "s/INTERFACE/$INTERFACE/" scripts/subnodes_ap.sh
+                sed -i "s/CONNECTION_NAME/$CONNECTION_NAME/" scripts/subnodes_ap.sh
 		cp scripts/subnodes_ap.sh /etc/init.d/subnodes_ap
 		chmod 755 /etc/init.d/subnodes_ap
 		update-rc.d subnodes_ap defaults
@@ -279,84 +164,28 @@ EOF
 #
 
 	[Nn]* )
-	# if no mesh point is created, set up network interfaces, hostapd and dnsmasq to operate without a bridge
+	# if no mesh point is created, set up network manager to work without a bridge
 		clear
 
-		# configure dnsmasq
-		echo -en "Creating dnsmasq configuration file..."
-		cat <<EOF > /etc/dnsmasq.conf
-# Captive Portal logic (redirects traffic coming in on br0 to our web server)
-interface=wlan0
-address=/#/$AP_IP
-
-# DHCP server
-dhcp-range=$AP_DHCP_START,$AP_DHCP_END,$DHCP_NETMASK,$DHCP_LEASE
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-	    		echo -en "[FAIL]\n"
-			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
-
-		# create new /etc/network/interfaces
-		echo -en "Creating new network interfaces with your settings..."
-		cat <<EOF > /etc/network/interfaces
-auto lo
-iface lo inet loopback
-
-auto wlan0
-iface wlan0 inet static
-address $AP_IP
-netmask $AP_NETMASK
-
-iface default inet dhcp
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-		    	echo -en "[FAIL]\n"
-			echo ""
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
-
-		# create hostapd configuration with user's settings
-		echo -en "Creating hostapd.conf file..."
-		cat <<EOF > /etc/hostapd/hostapd.conf
-interface=wlan0
-driver=$RADIO_DRIVER
-country_code=$AP_COUNTRY
-ctrl_interface=/var/run/hostapd
-ctrl_interface_group=0
-ssid=$AP_SSID
-hw_mode=g
-channel=$AP_CHAN
-auth_algs=1
-wpa=0
-ap_isolate=1
-macaddr_acl=0
-wmm_enabled=1
-ieee80211n=1
-EOF
-		rc=$?
-		if [[ $rc != 0 ]] ; then
-			echo -en "[FAIL]\n"
-			exit $rc
-		else
-			echo -en "[OK]\n"
-		fi
+		nmcli con delete $CONNECTION_NAME
+		nmcli con add type wifi ifname $INTERFACE mode ap con-name $CONNECTION_NAME ssid $AP_SSID autoconnect yes
+		nmcli con modify $CONNECTION_NAME 802-11-wireless.band bg 802-11-wireless.channel $AP_CHAN
+		nmcli con modify $CONNECTION_NAME ipv4.method shared ipv4.address $AP_IP
+		#nmcli con modify $CONNECTION_NAME wifi-sec.key-mgmt wpa-psk wifi-sec.psk "mypassword"
+		nmcli con up $CONNECTION_NAME
 
 		# COPY OVER START UP SCRIPTS
 		echo ""
 		echo "Adding startup scripts to init.d..."
+		sed -i "s/INTERFACE/$INTERFACE/" scripts/subnodes_ap.sh
+                sed -i "s/CONNECTION_NAME/$CONNECTION_NAME/" scripts/subnodes_ap.sh
 		cp scripts/subnodes_ap.sh /etc/init.d/subnodes_ap
 		chmod 755 /etc/init.d/subnodes_ap
 		update-rc.d subnodes_ap defaults
 	;;
 esac
+
+# NEED TO SET managed=true in /etc/NetworkManager/NetworkManager.conf
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -366,6 +195,17 @@ esac
 # using IPFS?
 case $DO_SET_IPFS in
         [Yy]* )
+		# install ipfs kubo
+		cd /home/$USERNAME
+		wget https://sourceforge.net/projects/ipfs-kubo.mirror/files/v0.28.0/$KUBO
+		tar -xvzf $KUBO
+		rm $KUBO
+		cd kubo && ./install.sh
+		sudo -u $USERNAME ipfs init
+		sed -i -e '$i \ipfs daemon &\n' /etc/rc.local
+		cd /home/$USERNAME/subnodes-ipfs
+		echo pwd
+
 		case $BOOTSTRAP_NODE in
 			[Yy]* )
 				sudo -u $USERNAME echo -e "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > sudo -u $USERNAME $HOME/.ipfs/swarm.key
@@ -413,21 +253,6 @@ case $DO_SET_IPFS in
 esac
 
 # TO-DO: Give ppl the choice of which site to host on IPFS
-
-chgrp www-data /var/www/html
-chown www-data /var/www/html
-chmod 775 /var/www/html
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# enable services
-#
-
-clear
-update-rc.d dnsmasq enable
-update-rc.d hostapd remove
-systemctl unmask hostapd
-systemctl enable hostapd
 
 read -p "Do you wish to reboot now? [N] " yn
 	case $yn in

@@ -1,6 +1,6 @@
 #!/bin/bash
 # /etc/init.d/subnodes_ap
-# starts up node.js app, access point interface, hostapd, and dnsmasq for broadcasting a wireless network with captive portal
+# starts up access point interface, nginx for broadcasting a wireless network with captive portal
 
 ### BEGIN INIT INFO
 # Provides:          subnodes_ap
@@ -19,51 +19,38 @@ DESC="Brings up wireless access point for connecting to web server running on th
 DAEMON_PATH="/home/pi/subnodes"
 PIDFILE=/var/run/$NAME.pid
 
-# get first PHY WLAN pair
-readarray IW < <(iw dev | awk '$1~"phy#"{PHY=$1}; $1=="Interface" && $2~"wlan"{WLAN=$2; sub(/#/, "", PHY); print PHY " " WLAN}')
-
-IW0=( ${IW[0]} )
-
-PHY=${IW0[0]}
-WLAN0=${IW0[1]}
-
-echo $PHY $WLAN0 > /tmp/ap.log
-
 	case "$1" in
 		start)
 			echo "Starting $NAME access point on interfaces $PHY:$WLAN0..."
 
 			# associate the access point interface to a physical devices
-			ifconfig $WLAN0 down
+			nmcli con down CUSTOM-AP
 			# put iface into AP mode
-			iw phy $PHY interface add $WLAN0 type __ap
+			#iw phy $PHY interface add $WLAN0 type __ap
 
 			# add access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				brctl addif br0 $WLAN0
+				nmcli con add type bridge-slave ifname wlan0 master br0
 			fi
 
 			# bring up access point iface wireless access point interface
-			ifconfig $WLAN0 up
+			nmcli con up CUSTOM-AP
 
-			# start the hostapd and dnsmasq services
-			service dnsmasq start
-			service hostapd restart
+			# start nginx
 			service nginx start
 			;;
 		status)
 		;;
 		stop)
 
-			ifconfig $WLAN0 down
+			nmcli con down CUSTOM-AP
 
 			# delete access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				brctl delif br0 $WLAN0
+			#	brctl delif br0 $WLAN0
+				nmcli con down br0
 			fi
 
-			service hostapd stop
-            		service dnsmasq stop
             		service nginx stop
 		;;
 
