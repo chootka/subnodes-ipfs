@@ -24,7 +24,9 @@ Also, if this is your first time connecting to your Raspberry Pi headlessly (i.e
 * update apt-get
 
         sudo apt-get update
-        
+
+NB: If you get network failure, try adding 8.8.8.8 to /etc/resolv.conf via nmcli
+
 * install git
 
         sudo apt-get install git -y
@@ -38,15 +40,13 @@ Also, if this is your first time connecting to your Raspberry Pi headlessly (i.e
 
         nano subnodes.config
 
+* copy contents of scripts/NetworkManager.conf to /etc/NetworkManager/NetworkManager.conf
+
 * run the installation script
 
         sudo ./install.sh $USER
 
-* edit /etc/NetworkManager/NetworkManager.conf and set `managed=true`
-
-The installation process takes about 5 minutes. After it has completed, you will have a running nginx web server, wireless access point, and BATMAN Advanced mesh node (if you left DO_SET_MESH=y). Connecting to the network and navigating to a browser page will redirect you to your new captive portal page. It's only going to be a boilerplate (aka, default) nginx web page, so head into /var/www/html and create a new index.html.
-
-From here, fork, build, share your ideas, and have fun!
+* reboot and you should see your wifi network come up
 
 References
 ----------

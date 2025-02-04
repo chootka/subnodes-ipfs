@@ -24,17 +24,17 @@ PIDFILE=/var/run/$NAME.pid
 			echo "Starting $NAME access point on interfaces $PHY:$WLAN0..."
 
 			# associate the access point interface to a physical devices
-			nmcli con down CONNECTION_NAME
+			nmcli con down CUSTOM-AP
 			# put iface into AP mode
 			#iw phy $PHY interface add $WLAN0 type __ap
 
 			# add access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
-				nmcli con add type bridge-slave ifname INTERFACE master br0
+				nmcli con add type bridge-slave ifname wlan0 master br0
 			fi
 
 			# bring up access point iface wireless access point interface
-			nmcli con up CONNECTION_NAME
+			nmcli con up CUSTOM-AP
 
 			# start nginx
 			service nginx start
@@ -43,7 +43,7 @@ PIDFILE=/var/run/$NAME.pid
 		;;
 		stop)
 
-			nmcli con down CONNECTION_NAME
+			nmcli con down CUSTOM-AP
 
 			# delete access point iface to our bridge
 			if [[ -x /sys/class/net/br0 ]]; then
